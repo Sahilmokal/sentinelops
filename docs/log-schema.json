@@ -1,0 +1,8 @@
+{
+  "timestamp": "2026-02-14T10:15:30Z",
+  "serviceName": "auth-service",
+  "logLevel": "INFO",
+  "message": "Database connection timeout",
+  "traceId": "abc-123",
+  "host": "ec2-instance-1"
+}
