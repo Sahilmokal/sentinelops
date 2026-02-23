@@ -2,7 +2,7 @@ from collections import Counter
 import numpy as np
 
 
-from baseline_store import load_baseline, save_baseline
+from anomaly.baseline_store import load_baseline, save_baseline
 
 
 def detect_spike_with_baseline(logs):
