@@ -3,3 +3,5 @@ uvicorn
 scikit-learn
 elasticsearch
 numpy
+apscheduler
+requests
