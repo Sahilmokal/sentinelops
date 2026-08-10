@@ -57,7 +57,7 @@ services:
       retries: 20
 
   log-ingestion-service:
-    build: ./backend/log-ingestion-service
+    image: sahil19052004/traceforge-log-ingestion:latest
     container_name: log-ingestion-service
     ports:
     - "8080:8080"
@@ -66,8 +66,7 @@ services:
     depends_on:
       - kafka
   log-processor-service:
-    build:
-      context: ./backend/log-processor-service
+    image: sahil19052004/traceforge-log-processor:latest
     container_name: log-processor-service
     depends_on:
       kafka:
@@ -81,19 +80,18 @@ services:
       - "8081:8081"
 
   ai-service:
-    build: ./ai-service
+    image: sahil19052004/traceforge-ai-service:latest
     container_name: ai-service
     ports:
     - "8000:8000"
     environment:
       ELASTIC_HOST: http://elasticsearch:9200
-      ALLOWED_ORIGINS: http://localhost:5173
+      ALLOWED_ORIGINS: http://100.30.224.193:5173
     depends_on:
       - elasticsearch
 
   frontend:
-    build:
-      context: ./traceforge
+    image: sahil19052004/traceforge-frontend:latest
     container_name: frontend
     depends_on:
       - ai-service
