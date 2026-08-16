@@ -22,6 +22,7 @@ from anomaly.anomaly import (
     detect_error_rate_anomaly,
     detect_critical_errors
 )
+from anomaly.isolation_forest import detect_isolation_forest_anomaly
 from scheduler import start_scheduler
 
 
@@ -235,16 +236,22 @@ def get_anomalies(
 ):
     logs = fetch_logs(size=size, minutes=minutes)
 
+    isolation_forest_result = detect_isolation_forest_anomaly(logs)
+
     return {
         "mode": "realtime",
+        "totalLogsAnalyzed": len(logs),
+
+        # Existing rule-based detectors
         "trafficDrop": detect_traffic_drop(logs),
         "errorRate": detect_error_rate_anomaly(logs),
         "critical": detect_critical_errors(logs),
         "rare": detect_rare_logs(logs),
-        "spike": detect_spike_with_baseline(logs)
+        "spike": detect_spike_with_baseline(logs),
+
+        # ML detector
+        "isolationForest": isolation_forest_result
     }
-
-
 # =====================================================
 # ALERTS
 # =====================================================
