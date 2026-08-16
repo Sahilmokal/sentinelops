@@ -86,7 +86,7 @@ services:
     - "8000:8000"
     environment:
       ELASTIC_HOST: http://elasticsearch:9200
-      ALLOWED_ORIGINS: http://100.30.224.193:5173
+      ALLOWED_ORIGINS: http://98.93.112.61:5173, http://localhost:5173
     depends_on:
       - elasticsearch
 
