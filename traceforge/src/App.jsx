@@ -20,7 +20,7 @@ import LoginPage from './pages/LoginPage'
 // ============================================================
 
 const USING_MOCK =
-  !import.meta.env.VITE_API_URL
+  !import.meta.env.VITE_AI_API_URL
 
 
 export default function App() {
