@@ -1,25 +1,626 @@
 import axios from 'axios'
 
-const BASE_URL = import.meta.env.VITE_API_URL || ''
+
+// ============================================================
+// BASE URL
+// ============================================================
+
+const BASE_URL =
+  import.meta.env.VITE_API_URL || ''
+
+
+console.log(
+  '=================================================='
+)
+
+console.log(
+  '[TraceForge API] Initializing API client'
+)
+
+console.log(
+  '[TraceForge API] VITE_API_URL =',
+  import.meta.env.VITE_API_URL
+)
+
+console.log(
+  '[TraceForge API] BASE_URL =',
+  BASE_URL || '(same-origin)'
+)
+
+console.log(
+  '=================================================='
+)
+
+
+// ============================================================
+// AXIOS CLIENT
+// ============================================================
 
 const api = axios.create({
-  baseURL: BASE_URL,
-  timeout: 3000, // Short timeout so mock fallback kicks in fast
-  headers: { 'Content-Type': 'application/json' },
+
+  baseURL:
+    BASE_URL,
+
+  timeout:
+    50000,
+
+  headers: {
+    'Content-Type':
+      'application/json',
+  },
+
 })
 
-api.interceptors.response.use(
-  (res) => res.data,
-  (error) => {
-    console.warn('[TraceForge API] unreachable, using mock data')
-    return Promise.reject(error)
+
+// ============================================================
+// REQUEST DEBUGGING
+// ============================================================
+
+api.interceptors.request.use(
+
+  config => {
+
+    console.groupCollapsed(
+      `[TraceForge API] REQUEST ${
+        config.method?.toUpperCase()
+      } ${
+        config.baseURL || ''
+      }${config.url}`
+    )
+
+    console.log(
+      'Method:',
+      config.method?.toUpperCase()
+    )
+
+    console.log(
+      'Base URL:',
+      config.baseURL
+    )
+
+    console.log(
+      'URL:',
+      config.url
+    )
+
+    console.log(
+      'Params:',
+      config.params
+    )
+
+    console.log(
+      'Data:',
+      config.data
+    )
+
+    console.log(
+      'Full URL:',
+      buildDebugUrl(config)
+    )
+
+    console.groupEnd()
+
+    return config
+  },
+
+  error => {
+
+    console.error(
+      '[TraceForge API] REQUEST SETUP ERROR',
+      error
+    )
+
+    return Promise.reject(
+      error
+    )
   }
 )
 
-export const fetchLogs        = (params = {}) => api.get('/logs',         { params })
-export const fetchAlerts      = (params = {}) => api.get('/alerts',       { params })
-export const fetchAnomalies   = ()             => api.get('/anomalies')
-export const fetchRCARealtme  = ()             => api.get('/rca/realtime')
-export const fetchRCAHistorical = (params={}) => api.get('/rca/historical', { params })
 
+// ============================================================
+// RESPONSE DEBUGGING
+// ============================================================
+
+api.interceptors.response.use(
+
+  response => {
+
+    console.groupCollapsed(
+      `[TraceForge API] RESPONSE ${
+        response.status
+      } ${
+        response.config.method?.toUpperCase()
+      } ${
+        response.config.url
+      }`
+    )
+
+    console.log(
+      'HTTP status:',
+      response.status
+    )
+
+    console.log(
+      'URL:',
+      response.config.url
+    )
+
+    console.log(
+      'Response:',
+      response.data
+    )
+
+    console.groupEnd()
+
+    /*
+     * Return response.data so service functions
+     * receive the backend JSON directly.
+     */
+
+    return response.data
+  },
+
+  error => {
+
+    console.groupCollapsed(
+      '[TraceForge API] RESPONSE ERROR'
+    )
+
+    console.error(
+      'HTTP status:',
+      error?.response?.status
+    )
+
+    console.error(
+      'Method:',
+      error?.config?.method?.toUpperCase()
+    )
+
+    console.error(
+      'URL:',
+      error?.config?.url
+    )
+
+    console.error(
+      'Params:',
+      error?.config?.params
+    )
+
+    console.error(
+      'Response data:',
+      error?.response?.data
+    )
+
+    console.error(
+      'Message:',
+      error?.message
+    )
+
+    console.groupEnd()
+
+    return Promise.reject(
+      error
+    )
+  }
+)
+
+
+// ============================================================
+// LOGS
+// ============================================================
+
+export const fetchLogs = (
+  params = {}
+) => {
+
+  return api.get(
+    '/logs',
+    {
+      params,
+    }
+  )
+}
+
+
+// ============================================================
+// ALERTS
+// ============================================================
+
+export const fetchAlerts = (
+  params = {}
+) => {
+
+  console.log(
+    '[TraceForge ALERTS] GET /alerts',
+    params
+  )
+
+  return api.get(
+    '/alerts',
+    {
+      params,
+    }
+  )
+}
+
+
+// ============================================================
+// EXACT ALERT
+//
+// Backend:
+//
+// GET /alerts/{alert_id}
+// ============================================================
+
+export const fetchAlertById =
+  async (
+    alertId
+  ) => {
+
+    const id =
+      requireAlertId(
+        alertId,
+        'fetchAlertById'
+      )
+
+    console.log(
+      '[TraceForge ALERTS] GET EXACT ALERT:',
+      id
+    )
+
+    return api.get(
+      `/alerts/${encodeURIComponent(id)}`
+    )
+  }
+
+
+// ============================================================
+// ACKNOWLEDGE
+//
+// Backend:
+//
+// POST /alerts/{alert_id}/ack
+// ============================================================
+
+export const acknowledgeAlert =
+  async (
+    alertId
+  ) => {
+
+    const id =
+      requireAlertId(
+        alertId,
+        'acknowledgeAlert'
+      )
+
+    console.log(
+      '[TraceForge ALERTS] ACK:',
+      id
+    )
+
+    return api.post(
+      `/alerts/${encodeURIComponent(id)}/ack`
+    )
+  }
+
+
+// ============================================================
+// RESOLVE
+//
+// Backend:
+//
+// POST /alerts/{alert_id}/resolve
+// ============================================================
+
+export const resolveAlert =
+  async (
+    alertId
+  ) => {
+
+    const id =
+      requireAlertId(
+        alertId,
+        'resolveAlert'
+      )
+
+    console.log(
+      '[TraceForge ALERTS] RESOLVE:',
+      id
+    )
+
+    return api.post(
+      `/alerts/${encodeURIComponent(id)}/resolve`
+    )
+  }
+
+
+// ============================================================
+// RCA — EXACT INCIDENT
+//
+// THIS IS THE ONLY RCA ENDPOINT IMPLEMENTED
+// BY THE BACKEND YOU PROVIDED.
+//
+// Backend:
+//
+// GET /rca/incident/{alert_id}
+//
+// Example:
+//
+// GET /rca/incident/
+// 8cc91db2-d81e-44ae-8c32-a68939207482
+// ============================================================
+
+export const fetchRCAIncident =
+  async (
+    alertId
+  ) => {
+
+    const id =
+      requireAlertId(
+        alertId,
+        'fetchRCAIncident'
+      )
+
+    const encodedId =
+      encodeURIComponent(
+        id
+      )
+
+    console.log(
+      '=================================================='
+    )
+
+    console.log(
+      '[TraceForge RCA] EXACT INCIDENT REQUEST'
+    )
+
+    console.log(
+      '[TraceForge RCA] alertId:',
+      id
+    )
+
+    console.log(
+      '[TraceForge RCA] endpoint:',
+      `/rca/incident/${encodedId}`
+    )
+
+    console.log(
+      '=================================================='
+    )
+
+    return api.get(
+      `/rca/incident/${encodedId}`
+    )
+  }
+
+
+// ============================================================
+// RCA REALTIME
+//
+// BACKWARD-COMPATIBILITY ALIAS
+//
+// Existing code can still import this function,
+// but it now calls the real incident endpoint.
+//
+// IMPORTANT:
+// The argument is an alertId string, NOT Axios params.
+// ============================================================
+
+export const fetchRCARealtme =
+  async (
+    alertId
+  ) => {
+
+    return fetchRCAIncident(
+      alertId
+    )
+  }
+
+
+// ============================================================
+// RCA HISTORICAL
+//
+// NOT IMPLEMENTED BY BACKEND.
+//
+// Do not pretend this endpoint exists.
+// ============================================================
+
+export const fetchRCAHistorical =
+  async () => {
+
+    throw new Error(
+      'Historical RCA is not implemented by the backend. Use fetchRCAIncident(alertId).'
+    )
+  }
+
+
+// ============================================================
+// ANOMALIES
+//
+// Backend:
+//
+// GET /anomalies
+// ============================================================
+
+export const fetchAnomalies = (
+  params = {}
+) => {
+
+  return api.get(
+    '/anomalies',
+    {
+      params,
+    }
+  )
+}
+
+
+// ============================================================
+// CLUSTERS
+//
+// Backend:
+//
+// GET /clusters
+// ============================================================
+
+export const fetchClusters = (
+  params = {}
+) => {
+
+  return api.get(
+    '/clusters',
+    {
+      params,
+    }
+  )
+}
+
+
+// ============================================================
+// CLUSTER DETAILS
+//
+// Backend does not currently provide this.
+// ============================================================
+
+export const fetchClusterDetails =
+  async (
+    clusterId
+  ) => {
+
+    console.warn(
+      '[TraceForge CLUSTERS] Cluster details API not implemented:',
+      clusterId
+    )
+
+    throw new Error(
+      'Cluster details API is not implemented in the AI service.'
+    )
+  }
+
+
+// ============================================================
+// ALERT ID VALIDATION
+// ============================================================
+
+function requireAlertId(
+  alertId,
+  functionName
+) {
+
+  if (
+    alertId === undefined ||
+    alertId === null
+  ) {
+
+    throw new Error(
+      `${functionName}: alertId is required.`
+    )
+  }
+
+  const normalized =
+    String(
+      alertId
+    ).trim()
+
+  if (!normalized) {
+
+    throw new Error(
+      `${functionName}: alertId cannot be empty.`
+    )
+  }
+
+  return normalized
+}
+
+
+// ============================================================
+// DEBUG URL
+// ============================================================
+
+function buildDebugUrl(
+  config
+) {
+
+  try {
+
+    const base =
+      config.baseURL ||
+      window.location.origin
+
+    const url =
+      new URL(
+        config.url,
+        base.endsWith('/')
+          ? base
+          : `${base}/`
+      )
+
+    if (
+      config.params &&
+      typeof config.params === 'object'
+    ) {
+
+      Object.entries(
+        config.params
+      ).forEach(
+        ([key, value]) => {
+
+          if (
+            value !== undefined &&
+            value !== null &&
+            value !== ''
+          ) {
+
+            url.searchParams.set(
+              key,
+              String(value)
+            )
+          }
+
+        }
+      )
+    }
+
+    return url.toString()
+
+  } catch {
+
+    return `${
+      config.baseURL || ''
+    }${
+      config.url || ''
+    }`
+  }
+}
+
+
+// ============================================================
+// EXPORT
+// ============================================================
+// ============================================================
+// RCA HISTORY
+//
+// Returns previously created incidents for a specific period.
+//
+// IMPORTANT:
+// This endpoint returns stored RCA.
+// It does NOT recalculate RCA.
+// ============================================================
+
+export const fetchRCAHistory = async (
+  params = {}
+) => {
+
+  console.log(
+    '[TraceForge RCA] GET RCA HISTORY',
+    params
+  )
+
+  return api.get(
+    '/rca/history',
+    {
+      params,
+    }
+  )
+}
 export default api

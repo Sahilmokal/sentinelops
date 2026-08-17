@@ -6,3 +6,4 @@ numpy
 pandas
 apscheduler
 requests
+sentence-transformers

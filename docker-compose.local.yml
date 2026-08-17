@@ -1,6 +1,10 @@
 
 services:
-  #hi
+
+  # ============================================================
+  # ZOOKEEPER
+  # ============================================================
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
@@ -14,6 +18,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+
+  # ============================================================
+  # KAFKA
+  # ============================================================
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -38,13 +47,18 @@ services:
       timeout: 5s
       retries: 10
 
+
+  # ============================================================
+  # ELASTICSEARCH
+  # ============================================================
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
     container_name: elasticsearch
     environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
     ports:
       - "9200:9200"
     volumes:
@@ -55,53 +69,90 @@ services:
       timeout: 5s
       retries: 20
 
+
+  # ============================================================
+  # LOG INGESTION - LOCAL BUILD
+  # ============================================================
+
   log-ingestion-service:
-    image: sahil19052004/traceforge-log-ingestion:latest
-    
+    build:
+      context: ./backend/log-ingestion-service
+    image: traceforge-log-ingestion-local
     container_name: log-ingestion-service
     ports:
-    - "8080:8080"
+      - "8080:8080"
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       ELASTIC_HOST: http://elasticsearch:9200
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_SECRET: 7f4c9a2e6b1d8f03c5a7e9b2d4f6a8c1e3b5d7f9a2c4e6b8d0f1a3c5e7b9d2
     depends_on:
       kafka:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
+
+
+  # ============================================================
+  # LOG PROCESSOR - LOCAL BUILD
+  # ============================================================
+
   log-processor-service:
-    image: sahil19052004/traceforge-log-processor:latest
+    build:
+      context: ./backend/log-processor-service
+    image: traceforge-log-processor-local
     container_name: log-processor-service
-    depends_on:
-      kafka:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
-    environment:
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      ELASTIC_HOST: http://elasticsearch:9200
     ports:
       - "8081:8081"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTIC_HOST: http://elasticsearch:9200
+    depends_on:
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+
+
+  # ============================================================
+  # AI SERVICE - LOCAL BUILD
+  # ============================================================
 
   ai-service:
-    image: sahil19052004/traceforge-ai-service:latest
+    build:
+      context: ./ai-service
+    image: traceforge-ai-service-local
     container_name: ai-service
     ports:
-    - "8000:8000"
+      - "8000:8000"
     environment:
       ELASTIC_HOST: http://elasticsearch:9200
-      ALLOWED_ORIGINS: ${{ secrets.VITE_API_URL }}, http://localhost:5173
+      ALLOWED_ORIGINS: http://localhost:5173
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
+
+
+  # ============================================================
+  # FRONTEND - LOCAL BUILD
+  # ============================================================
 
   frontend:
-    image: sahil19052004/traceforge-frontend:latest
+    build:
+      context: ./traceforge
+      args:
+        VITE_API_URL: http://localhost:8000
+    image: traceforge-frontend-local
     container_name: frontend
-    depends_on:
-      - ai-service
     ports:
       - "5173:5173"
+    depends_on:
+      ai-service:
+        condition: service_started
+
+
+# ============================================================
+# VOLUMES
+# ============================================================
 
 volumes:
   es_data:
