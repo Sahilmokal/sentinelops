@@ -1,13 +1,11 @@
 import axios from 'axios'
 
-
 // ============================================================
 // BASE URL
 // ============================================================
 
 const BASE_URL =
   import.meta.env.VITE_API_URL || ''
-
 
 console.log(
   '=================================================='
@@ -38,27 +36,36 @@ console.log(
 
 const api = axios.create({
 
-  baseURL:
-    BASE_URL,
+  baseURL: BASE_URL,
 
-  timeout:
-    50000,
+  timeout: 50000,
 
   headers: {
-    'Content-Type':
-      'application/json',
+    'Content-Type': 'application/json',
   },
 
 })
 
 
 // ============================================================
-// REQUEST DEBUGGING
+// REQUEST INTERCEPTOR
+//
+// Automatically attach JWT to every authenticated request.
 // ============================================================
 
 api.interceptors.request.use(
 
   config => {
+
+    const token =
+      localStorage.getItem('token')
+
+    if (token) {
+
+      config.headers.Authorization =
+        `Bearer ${token}`
+
+    }
 
     console.groupCollapsed(
       `[TraceForge API] REQUEST ${
@@ -94,6 +101,11 @@ api.interceptors.request.use(
     )
 
     console.log(
+      'JWT:',
+      token ? 'ATTACHED' : 'NOT ATTACHED'
+    )
+
+    console.log(
       'Full URL:',
       buildDebugUrl(config)
     )
@@ -110,15 +122,14 @@ api.interceptors.request.use(
       error
     )
 
-    return Promise.reject(
-      error
-    )
+    return Promise.reject(error)
   }
+
 )
 
 
 // ============================================================
-// RESPONSE DEBUGGING
+// RESPONSE INTERCEPTOR
 // ============================================================
 
 api.interceptors.response.use(
@@ -151,11 +162,6 @@ api.interceptors.response.use(
     )
 
     console.groupEnd()
-
-    /*
-     * Return response.data so service functions
-     * receive the backend JSON directly.
-     */
 
     return response.data
   },
@@ -198,10 +204,9 @@ api.interceptors.response.use(
 
     console.groupEnd()
 
-    return Promise.reject(
-      error
-    )
+    return Promise.reject(error)
   }
+
 )
 
 
@@ -246,10 +251,6 @@ export const fetchAlerts = (
 
 // ============================================================
 // EXACT ALERT
-//
-// Backend:
-//
-// GET /alerts/{alert_id}
 // ============================================================
 
 export const fetchAlertById =
@@ -276,10 +277,6 @@ export const fetchAlertById =
 
 // ============================================================
 // ACKNOWLEDGE
-//
-// Backend:
-//
-// POST /alerts/{alert_id}/ack
 // ============================================================
 
 export const acknowledgeAlert =
@@ -306,10 +303,6 @@ export const acknowledgeAlert =
 
 // ============================================================
 // RESOLVE
-//
-// Backend:
-//
-// POST /alerts/{alert_id}/resolve
 // ============================================================
 
 export const resolveAlert =
@@ -336,18 +329,6 @@ export const resolveAlert =
 
 // ============================================================
 // RCA — EXACT INCIDENT
-//
-// THIS IS THE ONLY RCA ENDPOINT IMPLEMENTED
-// BY THE BACKEND YOU PROVIDED.
-//
-// Backend:
-//
-// GET /rca/incident/{alert_id}
-//
-// Example:
-//
-// GET /rca/incident/
-// 8cc91db2-d81e-44ae-8c32-a68939207482
 // ============================================================
 
 export const fetchRCAIncident =
@@ -362,9 +343,7 @@ export const fetchRCAIncident =
       )
 
     const encodedId =
-      encodeURIComponent(
-        id
-      )
+      encodeURIComponent(id)
 
     console.log(
       '=================================================='
@@ -396,14 +375,6 @@ export const fetchRCAIncident =
 
 // ============================================================
 // RCA REALTIME
-//
-// BACKWARD-COMPATIBILITY ALIAS
-//
-// Existing code can still import this function,
-// but it now calls the real incident endpoint.
-//
-// IMPORTANT:
-// The argument is an alertId string, NOT Axios params.
 // ============================================================
 
 export const fetchRCARealtme =
@@ -419,10 +390,6 @@ export const fetchRCARealtme =
 
 // ============================================================
 // RCA HISTORICAL
-//
-// NOT IMPLEMENTED BY BACKEND.
-//
-// Do not pretend this endpoint exists.
 // ============================================================
 
 export const fetchRCAHistorical =
@@ -436,10 +403,6 @@ export const fetchRCAHistorical =
 
 // ============================================================
 // ANOMALIES
-//
-// Backend:
-//
-// GET /anomalies
 // ============================================================
 
 export const fetchAnomalies = (
@@ -457,10 +420,6 @@ export const fetchAnomalies = (
 
 // ============================================================
 // CLUSTERS
-//
-// Backend:
-//
-// GET /clusters
 // ============================================================
 
 export const fetchClusters = (
@@ -478,8 +437,6 @@ export const fetchClusters = (
 
 // ============================================================
 // CLUSTER DETAILS
-//
-// Backend does not currently provide this.
 // ============================================================
 
 export const fetchClusterDetails =
@@ -494,6 +451,29 @@ export const fetchClusterDetails =
 
     throw new Error(
       'Cluster details API is not implemented in the AI service.'
+    )
+  }
+
+
+// ============================================================
+// RCA HISTORY
+// ============================================================
+
+export const fetchRCAHistory =
+  async (
+    params = {}
+  ) => {
+
+    console.log(
+      '[TraceForge RCA] GET RCA HISTORY',
+      params
+    )
+
+    return api.get(
+      '/rca/history',
+      {
+        params,
+      }
     )
   }
 
@@ -575,10 +555,12 @@ function buildDebugUrl(
               key,
               String(value)
             )
+
           }
 
         }
       )
+
     }
 
     return url.toString()
@@ -597,30 +579,5 @@ function buildDebugUrl(
 // ============================================================
 // EXPORT
 // ============================================================
-// ============================================================
-// RCA HISTORY
-//
-// Returns previously created incidents for a specific period.
-//
-// IMPORTANT:
-// This endpoint returns stored RCA.
-// It does NOT recalculate RCA.
-// ============================================================
 
-export const fetchRCAHistory = async (
-  params = {}
-) => {
-
-  console.log(
-    '[TraceForge RCA] GET RCA HISTORY',
-    params
-  )
-
-  return api.get(
-    '/rca/history',
-    {
-      params,
-    }
-  )
-}
 export default api
