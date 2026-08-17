@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 
-const API_URL =
-  import.meta.env.VITE_AUTH_API_URL || 'http://localhost:8080'
+const API_URL = import.meta.env.VITE_API_URL
 
 export default function LoginPage({ onLogin }) {
   const [mode, setMode] = useState('login')
@@ -27,60 +26,60 @@ export default function LoginPage({ onLogin }) {
   }
 
   const handleLogin = async () => {
-    const response = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username,
-        password,
-      }),
-    })
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      username,
+      password,
+    }),
+  })
 
-    const data = await response.json()
+  const data = await response.json()
 
-    if (!response.ok) {
-      throw new Error(data.message || 'Login failed')
-    }
-
-    localStorage.setItem('token', data.token)
-    localStorage.setItem('username', data.username)
-
-    onLogin(data)
+  if (!response.ok) {
+    throw new Error(data.message || 'Login failed')
   }
 
-  const handleRegister = async () => {
-    if (password !== confirmPassword) {
-      throw new Error('Passwords do not match')
-    }
+  localStorage.setItem('token', data.token)
+  localStorage.setItem('username', data.username)
 
-    const response = await fetch(`${API_URL}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username,
-        password,
-      }),
-    })
+  onLogin(data)
+}
 
-    const data = await response.json()
 
-    if (!response.ok) {
-      throw new Error(data.message || 'Registration failed')
-    }
-
-    setMessage(
-      'Registration successful. You can now sign in.'
-    )
-
-    setPassword('')
-    setConfirmPassword('')
-    setMode('login')
+const handleRegister = async () => {
+  if (password !== confirmPassword) {
+    throw new Error('Passwords do not match')
   }
 
+  const response = await fetch(`${API_URL}/auth/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      username,
+      password,
+    }),
+  })
+
+  const data = await response.json()
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Registration failed')
+  }
+
+  setMessage(
+    'Registration successful. You can now sign in.'
+  )
+
+  setPassword('')
+  setConfirmPassword('')
+  setMode('login')
+}
   const handleSubmit = async (e) => {
     e.preventDefault()
 
