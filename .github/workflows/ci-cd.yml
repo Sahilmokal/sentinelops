@@ -165,7 +165,8 @@ jobs:
           # ------------------------------------------------------
 
           build-args: |
-            VITE_API_URL=${{ secrets.VITE_API_URL }}
+            VITE_AUTH_API_URL=${{ secrets.VITE_AUTH_API_URL }},
+            VITE_AI_API_URL=${{ secrets.VITE_AI_API_URL }}
 
 
   # ============================================================

@@ -1,42 +1,52 @@
 import axios from 'axios'
 
-// ============================================================
-// BASE URL
-// ============================================================
-
-const BASE_URL =
-  import.meta.env.VITE_API_URL || ''
-
-console.log(
-  '=================================================='
-)
-
-console.log(
-  '[TraceForge API] Initializing API client'
-)
-
-console.log(
-  '[TraceForge API] VITE_API_URL =',
-  import.meta.env.VITE_API_URL
-)
-
-console.log(
-  '[TraceForge API] BASE_URL =',
-  BASE_URL || '(same-origin)'
-)
-
-console.log(
-  '=================================================='
-)
-
 
 // ============================================================
-// AXIOS CLIENT
+// API URLS
+// ============================================================
+//
+// Spring Boot:
+//   Authentication + JWT
+//
+//   http://100.57.251.173:8080
+//
+// FastAPI AI service:
+//   Logs, alerts, anomalies, clusters, RCA
+//
+//   http://100.57.251.173:8000
 // ============================================================
 
-const api = axios.create({
+const AUTH_API_URL =
+  import.meta.env.VITE_AUTH_API_URL || 'http://localhost:8080'
 
-  baseURL: BASE_URL,
+const AI_API_URL =
+  import.meta.env.VITE_AI_API_URL || 'http://localhost:8000'
+
+
+console.log('==================================================')
+console.log('[TraceForge API] Initializing API clients')
+console.log('==================================================')
+
+console.log(
+  '[TraceForge API] AUTH_API_URL =',
+  AUTH_API_URL
+)
+
+console.log(
+  '[TraceForge API] AI_API_URL =',
+  AI_API_URL
+)
+
+console.log('==================================================')
+
+
+// ============================================================
+// AUTH CLIENT
+// ============================================================
+
+export const authApi = axios.create({
+
+  baseURL: AUTH_API_URL,
 
   timeout: 50000,
 
@@ -48,9 +58,26 @@ const api = axios.create({
 
 
 // ============================================================
-// REQUEST INTERCEPTOR
+// AI CLIENT
+// ============================================================
+
+const api = axios.create({
+
+  baseURL: AI_API_URL,
+
+  timeout: 50000,
+
+  headers: {
+    'Content-Type': 'application/json',
+  },
+
+})
+
+
+// ============================================================
+// JWT INTERCEPTOR
 //
-// Automatically attach JWT to every authenticated request.
+// Attach JWT to AI requests.
 // ============================================================
 
 api.interceptors.request.use(
@@ -68,7 +95,7 @@ api.interceptors.request.use(
     }
 
     console.groupCollapsed(
-      `[TraceForge API] REQUEST ${
+      `[TraceForge AI] REQUEST ${
         config.method?.toUpperCase()
       } ${
         config.baseURL || ''
@@ -96,40 +123,32 @@ api.interceptors.request.use(
     )
 
     console.log(
-      'Data:',
-      config.data
-    )
-
-    console.log(
       'JWT:',
       token ? 'ATTACHED' : 'NOT ATTACHED'
-    )
-
-    console.log(
-      'Full URL:',
-      buildDebugUrl(config)
     )
 
     console.groupEnd()
 
     return config
+
   },
 
   error => {
 
     console.error(
-      '[TraceForge API] REQUEST SETUP ERROR',
+      '[TraceForge AI] REQUEST SETUP ERROR',
       error
     )
 
     return Promise.reject(error)
+
   }
 
 )
 
 
 // ============================================================
-// RESPONSE INTERCEPTOR
+// AI RESPONSE INTERCEPTOR
 // ============================================================
 
 api.interceptors.response.use(
@@ -137,7 +156,7 @@ api.interceptors.response.use(
   response => {
 
     console.groupCollapsed(
-      `[TraceForge API] RESPONSE ${
+      `[TraceForge AI] RESPONSE ${
         response.status
       } ${
         response.config.method?.toUpperCase()
@@ -164,12 +183,13 @@ api.interceptors.response.use(
     console.groupEnd()
 
     return response.data
+
   },
 
   error => {
 
     console.groupCollapsed(
-      '[TraceForge API] RESPONSE ERROR'
+      '[TraceForge AI] RESPONSE ERROR'
     )
 
     console.error(
@@ -205,6 +225,7 @@ api.interceptors.response.use(
     console.groupEnd()
 
     return Promise.reject(error)
+
   }
 
 )
@@ -212,6 +233,9 @@ api.interceptors.response.use(
 
 // ============================================================
 // LOGS
+//
+// FastAPI:
+// GET /logs
 // ============================================================
 
 export const fetchLogs = (
@@ -224,11 +248,15 @@ export const fetchLogs = (
       params,
     }
   )
+
 }
 
 
 // ============================================================
 // ALERTS
+//
+// FastAPI:
+// GET /alerts
 // ============================================================
 
 export const fetchAlerts = (
@@ -246,163 +274,188 @@ export const fetchAlerts = (
       params,
     }
   )
+
 }
 
 
 // ============================================================
 // EXACT ALERT
+//
+// FastAPI:
+// GET /alerts/{alert_id}
 // ============================================================
 
-export const fetchAlertById =
-  async (
+export const fetchAlertById = async (
+  alertId
+) => {
+
+  const id =
+    requireAlertId(
+      alertId,
+      'fetchAlertById'
+    )
+
+  console.log(
+    '[TraceForge ALERTS] GET EXACT ALERT:',
+    id
+  )
+
+  return api.get(
+    `/alerts/${encodeURIComponent(id)}`
+  )
+
+}
+
+
+// ============================================================
+// ACKNOWLEDGE ALERT
+//
+// FastAPI:
+// POST /alerts/{alert_id}/ack
+// ============================================================
+
+export const acknowledgeAlert = async (
+  alertId
+) => {
+
+  const id =
+    requireAlertId(
+      alertId,
+      'acknowledgeAlert'
+    )
+
+  console.log(
+    '[TraceForge ALERTS] ACK:',
+    id
+  )
+
+  return api.post(
+    `/alerts/${encodeURIComponent(id)}/ack`
+  )
+
+}
+
+
+// ============================================================
+// RESOLVE ALERT
+//
+// FastAPI:
+// POST /alerts/{alert_id}/resolve
+// ============================================================
+
+export const resolveAlert = async (
+  alertId
+) => {
+
+  const id =
+    requireAlertId(
+      alertId,
+      'resolveAlert'
+    )
+
+  console.log(
+    '[TraceForge ALERTS] RESOLVE:',
+    id
+  )
+
+  return api.post(
+    `/alerts/${encodeURIComponent(id)}/resolve`
+  )
+
+}
+
+
+// ============================================================
+// RCA INCIDENT
+//
+// FastAPI:
+// GET /rca/incident/{alert_id}
+// ============================================================
+
+export const fetchRCAIncident = async (
+  alertId
+) => {
+
+  const id =
+    requireAlertId(
+      alertId,
+      'fetchRCAIncident'
+    )
+
+  const encodedId =
+    encodeURIComponent(id)
+
+  console.log(
+    '[TraceForge RCA] GET INCIDENT:',
+    `/rca/incident/${encodedId}`
+  )
+
+  return api.get(
+    `/rca/incident/${encodedId}`
+  )
+
+}
+
+
+// ============================================================
+// RCA REALTIME ALIAS
+// ============================================================
+
+export const fetchRCARealtme = async (
+  alertId
+) => {
+
+  return fetchRCAIncident(
     alertId
-  ) => {
+  )
 
-    const id =
-      requireAlertId(
-        alertId,
-        'fetchAlertById'
-      )
-
-    console.log(
-      '[TraceForge ALERTS] GET EXACT ALERT:',
-      id
-    )
-
-    return api.get(
-      `/alerts/${encodeURIComponent(id)}`
-    )
-  }
-
-
-// ============================================================
-// ACKNOWLEDGE
-// ============================================================
-
-export const acknowledgeAlert =
-  async (
-    alertId
-  ) => {
-
-    const id =
-      requireAlertId(
-        alertId,
-        'acknowledgeAlert'
-      )
-
-    console.log(
-      '[TraceForge ALERTS] ACK:',
-      id
-    )
-
-    return api.post(
-      `/alerts/${encodeURIComponent(id)}/ack`
-    )
-  }
-
-
-// ============================================================
-// RESOLVE
-// ============================================================
-
-export const resolveAlert =
-  async (
-    alertId
-  ) => {
-
-    const id =
-      requireAlertId(
-        alertId,
-        'resolveAlert'
-      )
-
-    console.log(
-      '[TraceForge ALERTS] RESOLVE:',
-      id
-    )
-
-    return api.post(
-      `/alerts/${encodeURIComponent(id)}/resolve`
-    )
-  }
-
-
-// ============================================================
-// RCA — EXACT INCIDENT
-// ============================================================
-
-export const fetchRCAIncident =
-  async (
-    alertId
-  ) => {
-
-    const id =
-      requireAlertId(
-        alertId,
-        'fetchRCAIncident'
-      )
-
-    const encodedId =
-      encodeURIComponent(id)
-
-    console.log(
-      '=================================================='
-    )
-
-    console.log(
-      '[TraceForge RCA] EXACT INCIDENT REQUEST'
-    )
-
-    console.log(
-      '[TraceForge RCA] alertId:',
-      id
-    )
-
-    console.log(
-      '[TraceForge RCA] endpoint:',
-      `/rca/incident/${encodedId}`
-    )
-
-    console.log(
-      '=================================================='
-    )
-
-    return api.get(
-      `/rca/incident/${encodedId}`
-    )
-  }
-
-
-// ============================================================
-// RCA REALTIME
-// ============================================================
-
-export const fetchRCARealtme =
-  async (
-    alertId
-  ) => {
-
-    return fetchRCAIncident(
-      alertId
-    )
-  }
+}
 
 
 // ============================================================
 // RCA HISTORICAL
 // ============================================================
 
-export const fetchRCAHistorical =
-  async () => {
+export const fetchRCAHistorical = async () => {
 
-    throw new Error(
-      'Historical RCA is not implemented by the backend. Use fetchRCAIncident(alertId).'
-    )
-  }
+  throw new Error(
+    'Historical RCA is not implemented by the backend. Use fetchRCAHistory().'
+  )
+
+}
+
+
+// ============================================================
+// RCA HISTORY
+//
+// FastAPI:
+// GET /rca/history
+// ============================================================
+
+export const fetchRCAHistory = async (
+  params = {}
+) => {
+
+  console.log(
+    '[TraceForge RCA] GET RCA HISTORY',
+    params
+  )
+
+  return api.get(
+    '/rca/history',
+    {
+      params,
+    }
+  )
+
+}
 
 
 // ============================================================
 // ANOMALIES
+//
+// FastAPI:
+// GET /anomalies
 // ============================================================
 
 export const fetchAnomalies = (
@@ -415,11 +468,15 @@ export const fetchAnomalies = (
       params,
     }
   )
+
 }
 
 
 // ============================================================
 // CLUSTERS
+//
+// FastAPI:
+// GET /clusters
 // ============================================================
 
 export const fetchClusters = (
@@ -432,6 +489,7 @@ export const fetchClusters = (
       params,
     }
   )
+
 }
 
 
@@ -439,43 +497,20 @@ export const fetchClusters = (
 // CLUSTER DETAILS
 // ============================================================
 
-export const fetchClusterDetails =
-  async (
+export const fetchClusterDetails = async (
+  clusterId
+) => {
+
+  console.warn(
+    '[TraceForge CLUSTERS] Cluster details API not implemented:',
     clusterId
-  ) => {
+  )
 
-    console.warn(
-      '[TraceForge CLUSTERS] Cluster details API not implemented:',
-      clusterId
-    )
+  throw new Error(
+    'Cluster details API is not implemented in the AI service.'
+  )
 
-    throw new Error(
-      'Cluster details API is not implemented in the AI service.'
-    )
-  }
-
-
-// ============================================================
-// RCA HISTORY
-// ============================================================
-
-export const fetchRCAHistory =
-  async (
-    params = {}
-  ) => {
-
-    console.log(
-      '[TraceForge RCA] GET RCA HISTORY',
-      params
-    )
-
-    return api.get(
-      '/rca/history',
-      {
-        params,
-      }
-    )
-  }
+}
 
 
 // ============================================================
@@ -495,89 +530,66 @@ function requireAlertId(
     throw new Error(
       `${functionName}: alertId is required.`
     )
+
   }
 
   const normalized =
-    String(
-      alertId
-    ).trim()
+    String(alertId).trim()
 
   if (!normalized) {
 
     throw new Error(
       `${functionName}: alertId cannot be empty.`
     )
+
   }
 
   return normalized
+
 }
 
 
 // ============================================================
-// DEBUG URL
+// AUTH HELPERS
+//
+// Use these for login/register if you want auth calls
+// centralized in api.js.
 // ============================================================
 
-function buildDebugUrl(
-  config
-) {
+export const login = (
+  username,
+  password
+) => {
 
-  try {
-
-    const base =
-      config.baseURL ||
-      window.location.origin
-
-    const url =
-      new URL(
-        config.url,
-        base.endsWith('/')
-          ? base
-          : `${base}/`
-      )
-
-    if (
-      config.params &&
-      typeof config.params === 'object'
-    ) {
-
-      Object.entries(
-        config.params
-      ).forEach(
-        ([key, value]) => {
-
-          if (
-            value !== undefined &&
-            value !== null &&
-            value !== ''
-          ) {
-
-            url.searchParams.set(
-              key,
-              String(value)
-            )
-
-          }
-
-        }
-      )
-
+  return authApi.post(
+    '/auth/login',
+    {
+      username,
+      password,
     }
+  )
 
-    return url.toString()
+}
 
-  } catch {
 
-    return `${
-      config.baseURL || ''
-    }${
-      config.url || ''
-    }`
-  }
+export const register = (
+  username,
+  password
+) => {
+
+  return authApi.post(
+    '/auth/register',
+    {
+      username,
+      password,
+    }
+  )
+
 }
 
 
 // ============================================================
-// EXPORT
+// EXPORT AI CLIENT
 // ============================================================
 
 export default api

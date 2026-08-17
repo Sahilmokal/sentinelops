@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 # CONFIGURATION
 # ============================================================
 
-INGESTION_URL = "http://localhost:8080/api/logs"
+INGESTION_URL = "http://100.57.251.173:8080/api/logs"
 
 IST = ZoneInfo("Asia/Kolkata")
 
