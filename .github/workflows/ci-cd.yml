@@ -2,18 +2,23 @@ name: TraceForge AI CI/CD Pipeline
 
 on:
   push:
-    branches: ["main", "frontend-phase"]
+    branches:
+      - main
+      - frontend-phase
 
   pull_request:
-    branches: ["main"]
+    branches:
+      - main
+
 
 jobs:
 
-  # ------------------------------------------------
-  # 1. Build Java Services
-  # ------------------------------------------------
+  # ============================================================
+  # 1. BUILD JAVA SERVICES
+  # ============================================================
 
   build-java-services:
+
     runs-on: ubuntu-latest
 
     strategy:
@@ -23,28 +28,32 @@ jobs:
           - log-processor-service
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: "temurin"
+          distribution: temurin
           java-version: "17"
 
       - name: Build with Maven
         working-directory: ./backend/${{ matrix.service }}
-        run: mvn clean package -DskipTests
+        run: |
+          mvn clean package -DskipTests
 
 
-  # ------------------------------------------------
-  # 2. Build AI Service
-  # ------------------------------------------------
+  # ============================================================
+  # 2. BUILD AI SERVICE
+  # ============================================================
 
   build-ai-service:
+
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -56,18 +65,20 @@ jobs:
       - name: Install dependencies
         working-directory: ./ai-service
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
 
-  # ------------------------------------------------
-  # 3. Build Frontend
-  # ------------------------------------------------
+  # ============================================================
+  # 3. BUILD FRONTEND
+  # ============================================================
 
   build-frontend:
+
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -78,18 +89,21 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: ./traceforge
-        run: npm ci
+        run: |
+          npm ci
 
       - name: Fix Vite permission
         working-directory: ./traceforge
-        run: chmod +x node_modules/.bin/vite
+        run: |
+          chmod +x node_modules/.bin/vite
 
 
-  # ------------------------------------------------
-  # 4. Build and Push Docker Images
-  # ------------------------------------------------
+  # ============================================================
+  # 4. BUILD AND PUSH DOCKER IMAGES
+  # ============================================================
 
   docker-build-push:
+
     runs-on: ubuntu-latest
 
     needs:
@@ -102,6 +116,7 @@ jobs:
     strategy:
       matrix:
         include:
+
           - name: traceforge-log-ingestion
             context: ./backend/log-ingestion-service
 
@@ -115,6 +130,7 @@ jobs:
             context: ./traceforge
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -130,15 +146,18 @@ jobs:
           context: ${{ matrix.context }}
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/${{ matrix.name }}:latest
+
+          # Vite reads this during npm run build.
           build-args: |
             VITE_API_URL=${{ secrets.VITE_API_URL }}
 
 
-  # ------------------------------------------------
-  # 5. Deploy to AWS EC2
-  # ------------------------------------------------
+  # ============================================================
+  # 5. DEPLOY TO AWS EC2
+  # ============================================================
 
   deploy-to-ec2:
+
     runs-on: ubuntu-latest
 
     needs:
@@ -148,31 +167,123 @@ jobs:
 
     steps:
 
+      # ----------------------------------------------------------
+      # Checkout
+      # ----------------------------------------------------------
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
+
+      # ----------------------------------------------------------
+      # Copy docker-compose.yml
+      # ----------------------------------------------------------
+
       - name: Copy docker-compose.yml to EC2
         uses: appleboy/scp-action@v0.1.7
+
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+
           source: "docker-compose.yml"
           target: "/home/ubuntu/traceforge"
 
+
+      # ----------------------------------------------------------
+      # Deploy application
+      # ----------------------------------------------------------
+
       - name: Deploy application on EC2
         uses: appleboy/ssh-action@v1.0.3
+
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+
+          envs: JWT_SECRET,ALLOWED_ORIGINS
+
           script: |
+
+            set -e
+
             cd /home/ubuntu/traceforge
+
+            echo "=========================================="
+            echo "TRACEFORGE DEPLOYMENT"
+            echo "=========================================="
+
+            echo "Working directory:"
+            pwd
+
+            echo ""
+            echo "Docker Compose file:"
+            ls -lh docker-compose.yml
+
+            # ----------------------------------------------------
+            # Create .env from GitHub Secrets
+            # ----------------------------------------------------
+
+            printf 'JWT_SECRET=%s\n' "$JWT_SECRET" > .env
+            printf 'ALLOWED_ORIGINS=%s\n' "$ALLOWED_ORIGINS" >> .env
+
+            echo ""
+            echo "Environment configuration created."
+
+            # ----------------------------------------------------
+            # Verify Compose configuration
+            # ----------------------------------------------------
+
+            echo ""
+            echo "Checking Docker Compose configuration..."
+
+            docker compose config >/tmp/traceforge-compose-config.yml
+
+            echo "Docker Compose configuration is valid."
+
+            # ----------------------------------------------------
+            # Pull latest Docker images
+            # ----------------------------------------------------
+
+            echo ""
+            echo "Pulling latest Docker images..."
 
             docker compose pull
 
+            # ----------------------------------------------------
+            # Start / recreate services
+            # ----------------------------------------------------
+
+            echo ""
+            echo "Starting TraceForge..."
+
             docker compose up -d --remove-orphans
+
+            # ----------------------------------------------------
+            # Show running containers
+            # ----------------------------------------------------
+
+            echo ""
+            echo "Running containers:"
 
             docker compose ps
 
+            # ----------------------------------------------------
+            # Remove unused Docker images
+            # ----------------------------------------------------
+
+            echo ""
+            echo "Cleaning unused Docker images..."
+
             docker image prune -f
+
+            echo ""
+            echo "=========================================="
+            echo "DEPLOYMENT COMPLETED"
+            echo "=========================================="
