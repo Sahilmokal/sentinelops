@@ -136,8 +136,9 @@ public CorsConfigurationSource corsConfigurationSource() {
                     "OPTIONS"
             )
     );
+    //h
 
-    configuration.setAllowedHeaders(
+    configuration.setAllowedHeaders( 
             List.of("*")
     );
 
